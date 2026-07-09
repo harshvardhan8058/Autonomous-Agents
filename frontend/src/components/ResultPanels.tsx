@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { AgentResponse } from '../lib/api'
 import { Card } from './Workflow'
 
@@ -98,20 +99,52 @@ export function ReflectionPanel({
 }
 
 export function DownloadPanel({ result }: { result: AgentResponse }) {
+  const [downloading, setDownloading] = useState(false)
+  const [dlError, setDlError] = useState<string | null>(null)
+
+  async function handleDownload() {
+    setDownloading(true)
+    setDlError(null)
+    try {
+      const res = await fetch(result.document_url)
+      if (!res.ok) throw new Error(`Server returned ${res.status}`)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `${result.document_id}.docx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      // Delay revoke so the browser has time to start the download
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000)
+    } catch (err) {
+      setDlError(err instanceof Error ? err.message : 'Download failed.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <Card title="Document">
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
           <span className="font-mono text-xs break-all text-muted">{result.document_id}.docx</span>
-          <span className="text-xs text-muted">Professional DOCX with TOC, executive summary, timeline table, and footer.</span>
+          <span className="text-xs text-muted">
+            Professional DOCX with TOC, executive summary, timeline table, and footer.
+          </span>
+          {dlError && (
+            <span className="text-xs text-danger">{dlError}</span>
+          )}
         </div>
-        <a
-          href={result.document_url}
-          download
-          className="rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-background transition-transform hover:scale-[1.03] active:scale-[0.98]"
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={downloading}
+          className="rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-background transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:opacity-50 disabled:scale-100"
         >
-          Download DOCX
-        </a>
+          {downloading ? 'Preparing…' : 'Download DOCX'}
+        </button>
       </div>
     </Card>
   )
