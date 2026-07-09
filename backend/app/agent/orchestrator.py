@@ -36,6 +36,7 @@ class AgentOrchestrator:
 
         completed = sum(1 for e in executions if e.status == "completed")
         return AgentResponse(
+            request=request,
             plan=plan,
             execution_summary=ExecutionSummary(
                 total_tasks=len(executions),

@@ -68,6 +68,7 @@ class ExecutionSummary(BaseModel):
 
 
 class AgentResponse(BaseModel):
+    request: str = ""          # echoed back for reference in demos
     plan: Plan
     execution_summary: ExecutionSummary
     executions: list[TaskExecution]

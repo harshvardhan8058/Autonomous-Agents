@@ -1,4 +1,4 @@
-"""Public API — POST /agent, GET /documents/{id}, GET /health.
+"""Public API — POST /agent, GET /documents, GET /documents/{id}, GET /health.
 
 Routes are defined without the /api prefix; Vercel strips it before
 forwarding to this service.
@@ -6,6 +6,7 @@ forwarding to this service.
 import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from app.agent.orchestrator import AgentOrchestrator
 from app.schemas.models import AgentRequest, AgentResponse
@@ -15,9 +16,28 @@ from app.utils.json_utils import LLMJSONError
 router = APIRouter()
 
 
+class DocumentItem(BaseModel):
+    id: str
+    filename: str
+    download_url: str
+
+
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "autonomous-agent"}
+
+
+@router.get("/documents", response_model=list[DocumentItem])
+async def list_documents() -> list[DocumentItem]:
+    """Return all previously generated documents so the UI can list them."""
+    return [
+        DocumentItem(
+            id=doc_id,
+            filename=path.name,
+            download_url=f"/api/documents/{doc_id}",
+        )
+        for doc_id, path in document_store.list_all()
+    ]
 
 
 @router.post("/agent", response_model=AgentResponse)

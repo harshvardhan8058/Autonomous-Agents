@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { runAgent, type AgentResponse } from './lib/api'
+import { runAgent, listDocuments, type AgentResponse, type DocumentItem } from './lib/api'
 import { Card, WorkflowRail } from './components/Workflow'
 import {
   DownloadPanel,
@@ -19,7 +19,14 @@ export default function App() {
   const [stage, setStage] = useState(0)
   const [result, setResult] = useState<AgentResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pastDocs, setPastDocs] = useState<DocumentItem[]>([])
   const timersRef = useRef<number[]>([])
+
+  // Load past documents on mount and after each successful run
+  function refreshDocs() {
+    listDocuments().then(setPastDocs).catch(() => {})
+  }
+  useEffect(() => { refreshDocs() }, [])
 
   useEffect(() => () => timersRef.current.forEach(clearTimeout), [])
 
@@ -34,7 +41,9 @@ export default function App() {
       window.setTimeout(() => setStage(i + 2), ms),
     )
     try {
-      setResult(await runAgent(request))
+      const res = await runAgent(request)
+      setResult(res)
+      refreshDocs()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
@@ -128,6 +137,36 @@ export default function App() {
           <ReflectionPanel reflection={result.execution_summary.reflection} />
           <DownloadPanel result={result} />
         </>
+      )}
+
+      {pastDocs.length > 0 && (
+        <section className="glass animate-rise rounded-2xl p-5">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Previous Documents</h2>
+          <ul className="flex flex-col gap-2">
+            {pastDocs.map((doc) => (
+              <li key={doc.id} className="flex items-center justify-between gap-3">
+                <span className="truncate font-mono text-xs text-muted">{doc.filename}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await fetch(doc.download_url)
+                    if (!res.ok) return
+                    const blob = await res.blob()
+                    const a = document.createElement('a')
+                    a.href = URL.createObjectURL(blob)
+                    a.download = doc.filename
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                  }}
+                  className="shrink-0 rounded-lg border border-border px-3 py-1 text-xs transition-colors hover:bg-accent hover:text-background"
+                >
+                  Download
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <footer className="mt-auto pt-6 text-center text-xs text-muted">

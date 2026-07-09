@@ -1,5 +1,4 @@
 """DOCX Generator — renders the executed plan into a professional document."""
-from lxml import etree
 from pathlib import Path
 
 from docx import Document

@@ -31,5 +31,10 @@ class DocumentStore:
             return None
         return path
 
+    def list_all(self) -> list[tuple[str, Path]]:
+        """Return all stored (doc_id, path) pairs sorted newest-first."""
+        docs = sorted(self._root.glob("*.docx"), key=lambda p: p.stat().st_mtime, reverse=True)
+        return [(p.stem, p) for p in docs]
+
 
 document_store = DocumentStore()

@@ -29,6 +29,7 @@ export interface ReflectionReport {
 }
 
 export interface AgentResponse {
+  request: string
   plan: Plan
   execution_summary: {
     total_tasks: number
@@ -41,6 +42,18 @@ export interface AgentResponse {
   document_id: string
   document_path: string
   document_url: string
+}
+
+export interface DocumentItem {
+  id: string
+  filename: string
+  download_url: string
+}
+
+export async function listDocuments(): Promise<DocumentItem[]> {
+  const res = await fetch('/api/documents')
+  if (!res.ok) return []
+  return res.json()
 }
 
 export async function runAgent(request: string): Promise<AgentResponse> {
