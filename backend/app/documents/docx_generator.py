@@ -1,8 +1,10 @@
 """DOCX Generator — renders the executed plan into a professional document."""
+from lxml import etree
 from pathlib import Path
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
@@ -59,15 +61,37 @@ def _title_page(doc: Document, plan: Plan) -> None:
 
 
 def _table_of_contents(doc: Document) -> None:
+    """Insert a real Word TOC using the complex-field (fldChar) sequence so
+    Word / LibreOffice auto-populates it on open without manual updating."""
     doc.add_heading("Table of Contents", level=1)
+
+    # Build:  <w:p><w:r><w:fldChar begin/><w:instrText TOC …/><w:fldChar separate/><w:fldChar end/></w:r></w:p>
     paragraph = doc.add_paragraph()
-    fld = paragraph._p.makeelement(qn("w:fldSimple"), {})
-    fld.set(qn("w:instr"), 'TOC \\o "1-2" \\h \\z \\u')
-    paragraph._p.append(fld)
-    note = doc.add_paragraph()
-    note_run = note.add_run("Right-click and select “Update Field” to populate.")
-    note_run.font.size = Pt(9)
-    note_run.font.color.rgb = _MUTED
+    run = paragraph.add_run()
+    run_xml = run._r
+
+    def _fld_char(type_: str) -> OxmlElement:
+        fc = OxmlElement("w:fldChar")
+        fc.set(qn("w:fldCharType"), type_)
+        return fc
+
+    def _instr(text: str) -> OxmlElement:
+        el = OxmlElement("w:instrText")
+        el.set(qn("xml:space"), "preserve")
+        el.text = text
+        return el
+
+    run_xml.append(_fld_char("begin"))
+    run_xml.append(_instr(' TOC \\o "1-3" \\h \\z \\u '))
+    run_xml.append(_fld_char("separate"))
+    run_xml.append(_fld_char("end"))
+
+    # Tell Word to refresh all fields (including the TOC) when the document opens.
+    settings = doc.settings.element
+    update_fields = OxmlElement("w:updateFields")
+    update_fields.set(qn("w:val"), "true")
+    settings.append(update_fields)
+
     doc.add_page_break()
 
 
